@@ -71,7 +71,9 @@ card = st.sidebar.text_input("Card Number")
 amount = st.sidebar.number_input("Amount (INR)", min_value=1.0)
 
 currency = st.sidebar.selectbox("Currency", ["USD", "EUR", "GBP"])
-network = st.sidebar.selectbox("Network", ["Visa", "Mastercard", "SWIFT"])
+
+# ✅ Added PayPal option
+network = st.sidebar.selectbox("Network", ["Visa", "Mastercard", "SWIFT", "PayPal"])
 
 # ---------------------------
 # LOGIC
@@ -155,6 +157,9 @@ if st.button("🚀 Send Payment"):
 # DASHBOARD
 # ---------------------------
 st.subheader("📊 Dashboard")
+
+# ✅ Show CURRENT USER INFO (Fix applied)
+st.info(f"👤 Current User: {user_name} | 📞 {phone if phone else 'Not Added'}")
 
 if "data" in st.session_state and len(st.session_state.data) > 0:
     df = pd.DataFrame(st.session_state.data)
