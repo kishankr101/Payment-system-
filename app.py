@@ -1,164 +1,157 @@
 import streamlit as st
+import requests
+import stripe
+import os
+import pandas as pd
 import time
 import random
-import pandas as pd
 
-st.set_page_config(page_title="Global Payment Pro", layout="wide")
+st.set_page_config(page_title="GlobalPay Pro", layout="wide")
 
-# -----------------------
-# STYLE (PRO UI)
-# -----------------------
+# -------------------------
+# CONFIG (IMPORTANT)
+# -------------------------
+# Put your API keys in environment variables
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_yourkey")
+
+FOREX_API = "https://api.exchangerate-api.com/v4/latest/INR"
+
+# -------------------------
+# UI STYLE
+# -------------------------
 st.markdown("""
 <style>
-.block-container {padding-top: 2rem;}
-.card {
-    background: #ffffff;
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
-}
+.card {padding:20px;border-radius:15px;background:white;
+box-shadow:0px 4px 10px rgba(0,0,0,0.08);}
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------
-# HEADER
-# -----------------------
-st.title("🌍 Global Payment Pro Dashboard")
+st.title("🌍 GlobalPay Production System")
 
-# -----------------------
+# -------------------------
+# GET LIVE FOREX
+# -------------------------
+@st.cache_data(ttl=300)
+def get_rates():
+    try:
+        res = requests.get(FOREX_API)
+        data = res.json()
+        return data["rates"]
+    except:
+        return {"USD":83,"EUR":90,"GBP":105}
+
+rates = get_rates()
+
+# -------------------------
 # SIDEBAR INPUT
-# -----------------------
-st.sidebar.header("👤 User KYC")
+# -------------------------
+st.sidebar.header("👤 User + Payment")
 
 name = st.sidebar.text_input("Full Name")
-pan = st.sidebar.text_input("PAN Number")
+pan = st.sidebar.text_input("PAN")
 card = st.sidebar.text_input("Card Number")
 
-amount = st.sidebar.number_input("Amount (INR)", min_value=1.0)
+amount = st.sidebar.number_input("Amount INR", min_value=1.0)
 
-currency = st.sidebar.selectbox("Currency", ["USD", "EUR", "GBP"])
-network = st.sidebar.selectbox("Network", ["Visa", "Mastercard", "SWIFT"])
+currency = st.sidebar.selectbox("Currency", ["USD","EUR","GBP"])
 
-# -----------------------
-# LIVE RATES (SIMULATED CLEAN)
-# -----------------------
-rates = {
-    "USD": 83 + random.uniform(-0.5, 0.5),
-    "EUR": 90 + random.uniform(-0.5, 0.5),
-    "GBP": 105 + random.uniform(-0.5, 0.5)
-}
+# -------------------------
+# KYC (UPGRADE READY)
+# -------------------------
+def kyc(name, pan):
+    return len(name)>3 and len(pan)==10
 
-# -----------------------
-# KYC SYSTEM
-# -----------------------
-def kyc_check(name, pan, card):
-    return len(name) > 3 and len(pan) == 10 and len(card) >= 12
+# -------------------------
+# FRAUD CHECK
+# -------------------------
+def fraud(amount):
+    return amount > 200000
 
-# -----------------------
-# FRAUD DETECTION (AI STYLE LOGIC)
-# -----------------------
-def fraud_check(amount):
-    if amount > 100000:
-        return True
-    return False
+# -------------------------
+# STRIPE PAYMENT
+# -------------------------
+def create_payment(amount):
+    try:
+        payment = stripe.PaymentIntent.create(
+            amount=int(amount*100),
+            currency="inr",
+            payment_method_types=["card"]
+        )
+        return payment["id"]
+    except Exception as e:
+        return str(e)
 
-# -----------------------
-# FEES
-# -----------------------
-def fees_calc(amount):
-    app_fee = amount * 0.01
-    bank_fee = amount * 0.015
-    forex_fee = amount * 0.02
-    return app_fee + bank_fee + forex_fee
+# -------------------------
+# MAIN PROCESS
+# -------------------------
+if st.button("🚀 Process Payment"):
 
-# -----------------------
-# PROCESS FLOW
-# -----------------------
-def process():
-    steps = [
-        "🔐 KYC Verification",
-        "🛡 Fraud Check",
-        "🏦 Bank Processing",
-        "🌐 Network Routing",
-        "💱 Currency Conversion",
-        "🌍 Settlement",
-        "✅ Completed"
-    ]
-
-    bar = st.progress(0)
-
-    for i, step in enumerate(steps):
-        st.info(step)
-        time.sleep(0.8)
-        bar.progress((i+1)/len(steps))
-
-# -----------------------
-# MAIN ACTION
-# -----------------------
-if st.button("🚀 Send Payment"):
-
-    if not kyc_check(name, pan, card):
+    if not kyc(name, pan):
         st.error("❌ KYC Failed")
-    elif fraud_check(amount):
-        st.error("⚠️ Suspicious Transaction Blocked")
+    elif fraud(amount):
+        st.error("⚠️ Suspicious Transaction")
     else:
-        st.success("✅ KYC Verified")
+        st.success("✅ Verified")
 
-        total_fee = fees_calc(amount)
-        converted = (amount - total_fee) / rates[currency]
+        rate = rates.get(currency, 83)
+        converted = amount / rate
 
-        process()
+        # FLOW
+        steps = ["KYC","Bank","Network","Forex","Settlement"]
+        bar = st.progress(0)
 
-        txn_id = "TXN" + str(random.randint(100000,999999))
+        for i,s in enumerate(steps):
+            st.info(s)
+            time.sleep(0.5)
+            bar.progress((i+1)/len(steps))
 
-        col1, col2 = st.columns(2)
+        # STRIPE (TEST)
+        payment_id = create_payment(amount)
 
-        with col1:
-            st.metric("Amount (INR)", f"₹{amount}")
-            st.metric("Fees", f"₹{round(total_fee,2)}")
+        txn = "TXN"+str(random.randint(100000,999999))
 
-        with col2:
-            st.metric(f"{currency} Received", f"{round(converted,2)}")
-            st.metric("Network", network)
+        st.success(f"✅ Done | ID: {txn}")
 
-        st.success(f"🎉 Transaction Successful | ID: {txn_id}")
+        col1,col2 = st.columns(2)
 
-        # SAVE HISTORY
-        if "data" not in st.session_state:
-            st.session_state.data = []
+        col1.metric("INR", f"₹{amount}")
+        col2.metric(currency, f"{round(converted,2)}")
 
-        st.session_state.data.append({
-            "Txn": txn_id,
-            "INR": amount,
-            "Currency": currency,
-            "Converted": round(converted,2)
+        st.write("Stripe Payment ID:", payment_id)
+
+        # SAVE
+        if "db" not in st.session_state:
+            st.session_state.db = []
+
+        st.session_state.db.append({
+            "txn":txn,
+            "amount":amount,
+            "currency":currency,
+            "converted":round(converted,2)
         })
 
-# -----------------------
+# -------------------------
 # DASHBOARD
-# -----------------------
-st.subheader("📊 Analytics Dashboard")
+# -------------------------
+st.subheader("📊 Dashboard")
 
-if "data" in st.session_state and len(st.session_state.data) > 0:
-
-    df = pd.DataFrame(st.session_state.data)
+if "db" in st.session_state and len(st.session_state.db)>0:
+    df = pd.DataFrame(st.session_state.db)
 
     st.dataframe(df, use_container_width=True)
 
-    st.subheader("📈 Total Volume")
-    st.metric("Total INR Processed", f"₹{df['INR'].sum()}")
+    st.metric("Total Volume", f"₹{df['amount'].sum()}")
 
-    st.subheader("💱 Currency Distribution")
-    st.bar_chart(df["Currency"].value_counts())
+    st.bar_chart(df["currency"].value_counts())
 
 else:
-    st.info("No transactions yet")
+    st.info("No data")
 
-# -----------------------
+# -------------------------
 # HISTORY
-# -----------------------
-st.subheader("📜 Transaction History")
+# -------------------------
+st.subheader("📜 History")
 
-if "data" in st.session_state:
-    for row in st.session_state.data[::-1]:
-        st.write(f"{row['Txn']} | ₹{row['INR']} → {row['Converted']} {row['Currency']}")
+if "db" in st.session_state:
+    for i in st.session_state.db[::-1]:
+        st.write(i)
