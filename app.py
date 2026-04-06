@@ -7,24 +7,40 @@ import requests
 st.set_page_config(page_title="Global Payment System", layout="wide")
 
 # ---------------------------
-# UI STYLE
+# SESSION INIT
 # ---------------------------
-st.markdown("""
-<style>
-.block-container {padding-top: 2rem;}
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0px 4px 10px rgba(0,0,0,0.08);
-}
-</style>
-""", unsafe_allow_html=True)
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
+# ---------------------------
+# LOGIN / REGISTER
+# ---------------------------
+if not st.session_state.logged_in:
+
+    st.title("🔐 User Login / Register")
+
+    name = st.text_input("Full Name")
+    email = st.text_input("Email")
+
+    if st.button("Login / Register"):
+        if name and email:
+            st.session_state.logged_in = True
+            st.session_state.user_name = name
+            st.session_state.user_email = email
+            st.success("✅ Login Successful")
+            st.rerun()
+        else:
+            st.error("Please fill all fields")
+
+    st.stop()
+
+# ---------------------------
+# MAIN APP
+# ---------------------------
 st.title("🌍 Global Payment System")
 
 # ---------------------------
-# LIVE FOREX (FIXED)
+# LIVE FOREX
 # ---------------------------
 @st.cache_data(ttl=300)
 def get_rates():
@@ -43,7 +59,12 @@ rates = get_rates()
 # ---------------------------
 st.sidebar.header("👤 User Details")
 
-name = st.sidebar.text_input("Full Name")
+user_name = st.session_state.user_name
+email = st.session_state.user_email
+
+phone = st.sidebar.text_input("Phone Number")
+region = st.sidebar.text_input("Region")
+
 pan = st.sidebar.text_input("PAN Number")
 card = st.sidebar.text_input("Card Number")
 
@@ -90,7 +111,7 @@ def process():
 # ---------------------------
 if st.button("🚀 Send Payment"):
 
-    if not kyc(name, pan, card):
+    if not kyc(user_name, pan, card):
         st.error("❌ KYC Failed")
     elif fraud(amount):
         st.error("⚠️ Transaction Blocked (High Risk)")
@@ -122,6 +143,9 @@ if st.button("🚀 Send Payment"):
 
         st.session_state.data.append({
             "Txn": txn_id,
+            "Name": user_name,
+            "Phone": phone,
+            "Region": region,
             "INR": amount,
             "Currency": currency,
             "Converted": round(converted,2)
@@ -137,10 +161,8 @@ if "data" in st.session_state and len(st.session_state.data) > 0:
 
     st.dataframe(df, use_container_width=True)
     st.metric("Total Volume", f"₹{df['INR'].sum()}")
-    st.bar_chart(df["Currency"].value_counts())
 else:
     st.info("No transactions yet")
-    
 
 # ---------------------------
 # HISTORY
@@ -149,4 +171,6 @@ st.subheader("📜 Transaction History")
 
 if "data" in st.session_state:
     for txn in st.session_state.data[::-1]:
-        st.write(f"{txn['Txn']} | ₹{txn['INR']} → {txn['Converted']} {txn['Currency']}")
+        st.write(
+            f"{txn['Txn']} | {txn['Name']} | {txn['Phone']} | {txn['Region']} | ₹{txn['INR']} → {txn['Converted']} {txn['Currency']}"
+        )
