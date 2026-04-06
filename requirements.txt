@@ -1,4 +1,3 @@
 streamlit
-requests
-stripe
 pandas
+requests
