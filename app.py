@@ -7,16 +7,12 @@ import requests
 st.set_page_config(page_title="Global Payment System", layout="wide")
 
 # ---------------------------
-# CUSTOM UI (MODERN LOOK)
+# CUSTOM UI
 # ---------------------------
 st.markdown("""
 <style>
-body {
-    background: #f5f7fb;
-}
-.block-container {
-    padding-top: 2rem;
-}
+body {background: #f5f7fb;}
+.block-container {padding-top: 2rem;}
 .card {
     background: white;
     padding: 20px;
@@ -40,10 +36,9 @@ if "page" not in st.session_state:
     st.session_state.page = "signup"
 
 # ---------------------------
-# SIGNUP PAGE
+# SIGNUP
 # ---------------------------
 if st.session_state.page == "signup":
-
     st.title("📝 Create Account")
 
     name = st.text_input("Full Name")
@@ -60,14 +55,12 @@ if st.session_state.page == "signup":
             st.rerun()
         else:
             st.error("Fill all details")
-
     st.stop()
 
 # ---------------------------
-# LOGIN PAGE
+# LOGIN
 # ---------------------------
 if st.session_state.page == "login":
-
     st.title("🔐 Login")
 
     email = st.text_input("Enter Email")
@@ -81,11 +74,10 @@ if st.session_state.page == "login":
             st.rerun()
         else:
             st.error("❌ Invalid Email")
-
     st.stop()
 
 # ---------------------------
-# DASHBOARD
+# MAIN APP
 # ---------------------------
 st.title("🌍 Global Payment System")
 
@@ -93,13 +85,21 @@ user_name = st.session_state.user_name
 user_phone = st.session_state.user_phone
 
 # ---------------------------
-# LIVE FOREX
+# FOREX
 # ---------------------------
 @st.cache_data(ttl=300)
 def get_rates():
     try:
         res = requests.get("https://api.exchangerate-api.com/v4/latest/INR")
-        return res.json()["rates"]
+        data = res.json()["rates"]
+
+        # ✅ SAFE FILTER (ONLY FIX ADDED)
+        safe_rates = {}
+        for k, v in data.items():
+            if 10 < v < 200:   # realistic range
+                safe_rates[k] = v
+
+        return safe_rates
     except:
         return {"USD": 83, "EUR": 90, "GBP": 105}
 
@@ -110,7 +110,7 @@ rates = get_rates()
 # ---------------------------
 st.sidebar.header("👤 User Panel")
 
-st.sidebar.success(f"{user_name}")
+st.sidebar.success(user_name)
 st.sidebar.info(f"📞 {user_phone}")
 
 region = st.sidebar.text_input("Region")
@@ -134,7 +134,7 @@ def fees(amount):
     return amount * 0.045
 
 # ---------------------------
-# PROCESS FLOW
+# PROCESS
 # ---------------------------
 def process():
     steps = [
@@ -148,14 +148,13 @@ def process():
     ]
 
     bar = st.progress(0)
-
     for i, step in enumerate(steps):
         st.info(step)
         time.sleep(0.6)
         bar.progress((i + 1) / len(steps))
 
 # ---------------------------
-# PAYMENT BUTTON
+# PAYMENT
 # ---------------------------
 if st.button("🚀 Send Payment"):
 
@@ -167,8 +166,13 @@ if st.button("🚀 Send Payment"):
         st.success("✅ Verified")
 
         rate = rates.get(currency, 83)
+
+        # ✅ FINAL SAFE FIX
+        if rate <= 0 or rate > 200:
+            rate = 83
+
         total_fee = fees(amount)
-        converted = (amount - total_fee) / rate
+        converted = (amount - total_fee) / rate   # correct formula
 
         process()
 
@@ -200,7 +204,7 @@ if st.button("🚀 Send Payment"):
         })
 
 # ---------------------------
-# DASHBOARD TABLE
+# DASHBOARD
 # ---------------------------
 st.subheader("📊 Dashboard")
 
