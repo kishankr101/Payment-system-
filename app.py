@@ -2,38 +2,50 @@ import streamlit as st
 import time
 import random
 import pandas as pd
-import requests
 
-st.set_page_config(page_title="Global Payment System", layout="wide")
-
-# ---------------------------
-# CUSTOM UI
-# ---------------------------
-st.markdown("""
-<style>
-body {background: #f5f7fb;}
-.block-container {padding-top: 2rem;}
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
-}
-.stButton>button {
-    background: linear-gradient(90deg,#0070ba,#00c6ff);
-    color: white;
-    border-radius: 10px;
-    height: 45px;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="GlobalPay", layout="wide")
 
 # ---------------------------
 # SESSION INIT
 # ---------------------------
 if "page" not in st.session_state:
     st.session_state.page = "signup"
+
+# ---------------------------
+# DATA (30 COUNTRIES)
+# ---------------------------
+countries = [
+    {"name":"USA","region":"North America","bank":"Bank of America","district":"California"},
+    {"name":"UK","region":"Europe","bank":"HSBC","district":"London"},
+    {"name":"Germany","region":"Europe","bank":"Deutsche Bank","district":"Berlin"},
+    {"name":"France","region":"Europe","bank":"BNP Paribas","district":"Paris"},
+    {"name":"Canada","region":"North America","bank":"RBC","district":"Toronto"},
+    {"name":"Australia","region":"Oceania","bank":"ANZ","district":"Sydney"},
+    {"name":"Japan","region":"Asia","bank":"MUFG","district":"Tokyo"},
+    {"name":"China","region":"Asia","bank":"ICBC","district":"Beijing"},
+    {"name":"Brazil","region":"South America","bank":"Itaú","district":"São Paulo"},
+    {"name":"India","region":"Asia","bank":"SBI","district":"Delhi"},
+    {"name":"UAE","region":"Middle East","bank":"Emirates NBD","district":"Dubai"},
+    {"name":"Singapore","region":"Asia","bank":"DBS","district":"Singapore"},
+    {"name":"South Africa","region":"Africa","bank":"Standard Bank","district":"Johannesburg"},
+    {"name":"Italy","region":"Europe","bank":"UniCredit","district":"Rome"},
+    {"name":"Spain","region":"Europe","bank":"Santander","district":"Madrid"},
+    {"name":"Netherlands","region":"Europe","bank":"ING","district":"Amsterdam"},
+    {"name":"Switzerland","region":"Europe","bank":"UBS","district":"Zurich"},
+    {"name":"Sweden","region":"Europe","bank":"SEB","district":"Stockholm"},
+    {"name":"Norway","region":"Europe","bank":"DNB","district":"Oslo"},
+    {"name":"Denmark","region":"Europe","bank":"Danske Bank","district":"Copenhagen"},
+    {"name":"Finland","region":"Europe","bank":"Nordea","district":"Helsinki"},
+    {"name":"Mexico","region":"North America","bank":"Banorte","district":"Mexico City"},
+    {"name":"Russia","region":"Europe","bank":"Sberbank","district":"Moscow"},
+    {"name":"Turkey","region":"Europe/Asia","bank":"Ziraat Bank","district":"Istanbul"},
+    {"name":"Indonesia","region":"Asia","bank":"Bank Mandiri","district":"Jakarta"},
+    {"name":"Thailand","region":"Asia","bank":"Bangkok Bank","district":"Bangkok"},
+    {"name":"Malaysia","region":"Asia","bank":"Maybank","district":"Kuala Lumpur"},
+    {"name":"Philippines","region":"Asia","bank":"BDO","district":"Manila"},
+    {"name":"Vietnam","region":"Asia","bank":"Vietcombank","district":"Hanoi"},
+    {"name":"Argentina","region":"South America","bank":"Banco Nación","district":"Buenos Aires"}
+]
 
 # ---------------------------
 # SIGNUP
@@ -43,18 +55,21 @@ if st.session_state.page == "signup":
 
     name = st.text_input("Full Name")
     email = st.text_input("Email")
-    phone = st.text_input("Phone Number")
+    phone = st.text_input("Phone")
+    password = st.text_input("Password", type="password")
 
     if st.button("Sign Up"):
-        if name and email and phone:
-            st.session_state.reg_name = name
-            st.session_state.reg_email = email
-            st.session_state.reg_phone = phone
+        if name and email and phone and password:
+            st.session_state.user = {
+                "name": name,
+                "email": email,
+                "phone": phone,
+                "password": password
+            }
             st.session_state.page = "login"
-            st.success("✅ Account Created")
+            st.success("Account Created")
             st.rerun()
-        else:
-            st.error("Fill all details")
+
     st.stop()
 
 # ---------------------------
@@ -63,167 +78,102 @@ if st.session_state.page == "signup":
 if st.session_state.page == "login":
     st.title("🔐 Login")
 
-    email = st.text_input("Enter Email")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if email == st.session_state.reg_email:
-            st.session_state.page = "dashboard"
-            st.session_state.user_name = st.session_state.reg_name
-            st.session_state.user_phone = st.session_state.reg_phone
-            st.success("✅ Login Successful")
+        user = st.session_state.get("user", {})
+        if email == user.get("email") and password == user.get("password"):
+            st.session_state.page = "countries"
+            st.success("Login Success")
             st.rerun()
         else:
-            st.error("❌ Invalid Email")
+            st.error("Invalid login")
+
+    if st.button("⬅️ Back"):
+        st.session_state.page = "signup"
+        st.rerun()
+
     st.stop()
 
 # ---------------------------
-# MAIN APP
+# COUNTRY PAGE
 # ---------------------------
-st.title("🌍 Global Payment System")
+if st.session_state.page == "countries":
+    st.title("🌍 Select Country")
 
-user_name = st.session_state.user_name
-user_phone = st.session_state.user_phone
+    search = st.text_input("🔍 Search Country")
 
-# ---------------------------
-# FOREX
-# ---------------------------
-@st.cache_data(ttl=300)
-def get_rates():
-    try:
-        res = requests.get("https://api.exchangerate-api.com/v4/latest/INR")
-        data = res.json()["rates"]
+    cols = st.columns(3)
 
-        # ✅ SAFE FILTER (ONLY FIX ADDED)
-        safe_rates = {}
-        for k, v in data.items():
-            if 10 < v < 200:   # realistic range
-                safe_rates[k] = v
+    filtered = [c for c in countries if search.lower() in c["name"].lower()]
 
-        return safe_rates
-    except:
-        return {"USD": 83, "EUR": 90, "GBP": 105}
+    for i, c in enumerate(filtered):
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div style='padding:15px;border-radius:12px;background:#fff;
+            box-shadow:0px 2px 8px rgba(0,0,0,0.1);margin-bottom:10px'>
+            <h4>{c['name']}</h4>
+            <p>{c['region']}</p>
+            <p>{c['bank']}</p>
+            <p>{c['district']}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-rates = get_rates()
+            if st.button(f"Send to {c['name']}", key=i):
+                st.session_state.selected_country = c
+                st.session_state.page = "details"
+                st.rerun()
 
-# ---------------------------
-# SIDEBAR
-# ---------------------------
-st.sidebar.header("👤 User Panel")
-
-st.sidebar.success(user_name)
-st.sidebar.info(f"📞 {user_phone}")
-
-region = st.sidebar.text_input("Region")
-pan = st.sidebar.text_input("PAN Number")
-card = st.sidebar.text_input("Card Number")
-
-amount = st.sidebar.number_input("Amount (INR)", min_value=1.0)
-currency = st.sidebar.selectbox("Currency", ["USD", "EUR", "GBP"])
-network = st.sidebar.selectbox("Network", ["Visa", "Mastercard", "SWIFT", "PayPal"])
+    st.stop()
 
 # ---------------------------
-# LOGIC
+# PAYMENT DETAILS
 # ---------------------------
-def kyc(name, pan, card):
-    return len(name) > 3 and len(pan) == 10 and len(card) >= 12
+if st.session_state.page == "details":
+    st.title("💳 Enter Details")
 
-def fraud(amount):
-    return amount > 150000
+    amount = st.number_input("Amount (INR)", min_value=1.0)
+    pan = st.text_input("PAN")
+    card = st.text_input("Card Number")
 
-def fees(amount):
-    return amount * 0.045
+    if st.button("➡️ Next"):
+        st.session_state.payment = {
+            "amount": amount,
+            "pan": pan,
+            "card": card
+        }
+        st.session_state.page = "process"
+        st.rerun()
+
+    if st.button("⬅️ Back"):
+        st.session_state.page = "countries"
+        st.rerun()
+
+    st.stop()
 
 # ---------------------------
 # PROCESS
 # ---------------------------
-def process():
-    steps = [
-        "🔐 KYC Verification",
-        "🛡 Fraud Check",
-        "🏦 Bank Processing",
-        "🌐 Network Routing",
-        "💱 Currency Conversion",
-        "🌍 Settlement",
-        "✅ Completed"
-    ]
+st.title("🚀 Processing")
 
-    bar = st.progress(0)
-    for i, step in enumerate(steps):
-        st.info(step)
-        time.sleep(0.6)
-        bar.progress((i + 1) / len(steps))
+steps = ["KYC","Bank","Network","Forex","Settlement","Done"]
+bar = st.progress(0)
 
-# ---------------------------
-# PAYMENT
-# ---------------------------
-if st.button("🚀 Send Payment"):
+for i, s in enumerate(steps):
+    st.info(s)
+    time.sleep(0.5)
+    bar.progress((i+1)/len(steps))
 
-    if not kyc(user_name, pan, card):
-        st.error("❌ KYC Failed")
-    elif fraud(amount):
-        st.error("⚠️ High Risk Transaction")
-    else:
-        st.success("✅ Verified")
+amount = st.session_state.payment["amount"]
+fee = amount * 0.045
+usd = (amount - fee) / 83
 
-        rate = rates.get(currency, 83)
+txn = "TXN" + str(random.randint(100000,999999))
 
-        # ✅ FINAL SAFE FIX
-        if rate <= 0 or rate > 200:
-            rate = 83
+st.success(f"✅ Success | {txn}")
+st.write(f"₹{amount} → ${round(usd,2)}")
 
-        total_fee = fees(amount)
-        converted = (amount - total_fee) / rate   # correct formula
-
-        process()
-
-        txn_id = "TXN" + str(random.randint(100000, 999999))
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.metric("Amount", f"₹{amount}")
-            st.metric("Fees", f"₹{round(total_fee,2)}")
-
-        with col2:
-            st.metric(currency, f"{round(converted,2)}")
-            st.metric("Network", network)
-
-        st.success(f"🎉 Success | ID: {txn_id}")
-
-        if "data" not in st.session_state:
-            st.session_state.data = []
-
-        st.session_state.data.append({
-            "Txn": txn_id,
-            "Name": user_name,
-            "Phone": user_phone,
-            "Region": region,
-            "INR": amount,
-            "Currency": currency,
-            "Converted": round(converted,2)
-        })
-
-# ---------------------------
-# DASHBOARD
-# ---------------------------
-st.subheader("📊 Dashboard")
-
-st.info(f"👤 {user_name} | 📞 {user_phone}")
-
-if "data" in st.session_state and len(st.session_state.data) > 0:
-    df = pd.DataFrame(st.session_state.data)
-    st.dataframe(df, use_container_width=True)
-    st.metric("Total Volume", f"₹{df['INR'].sum()}")
-else:
-    st.info("No transactions yet")
-
-# ---------------------------
-# HISTORY
-# ---------------------------
-st.subheader("📜 Transaction History")
-
-if "data" in st.session_state:
-    for txn in st.session_state.data[::-1]:
-        st.write(
-            f"{txn['Txn']} | {txn['Name']} | {txn['Phone']} | {txn['Region']} | ₹{txn['INR']} → {txn['Converted']} {txn['Currency']}"
-        )
+if st.button("⬅️ Back Home"):
+    st.session_state.page = "countries"
+    st.rerun()
