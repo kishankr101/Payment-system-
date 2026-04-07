@@ -99,22 +99,30 @@ def go_to(page):
     st.session_state.page = page
 
 # ---------------------------
-# BOTTOM NAV COMPONENT
+# BOTTOM NAV COMPONENT (FIXED WITH UNIQUE KEYS)
 # ---------------------------
 def render_bottom_nav():
     st.markdown("---")
     n1, n2, n3 = st.columns(3)
     with n1: 
-        if st.button("🏠 Home"): go_to("home"); st.rerun()
+        # Added key="nav_home" to prevent DuplicateElementId error
+        if st.button("🏠 Home", key="nav_home"): 
+            go_to("home")
+            st.rerun()
     with n2: 
-        if st.button("👤 Profile"): go_to("profile"); st.rerun()
+        # Added key="nav_profile"
+        if st.button("👤 Profile", key="nav_profile"): 
+            go_to("profile")
+            st.rerun()
     with n3: 
-        if st.button("🚪 Logout"): 
+        # Added key="nav_logout"
+        if st.button("🚪 Logout", key="nav_logout"): 
             st.session_state.user_authenticated = False
-            go_to("login"); st.rerun()
+            go_to("login")
+            st.rerun()
 
 # ---------------------------
-# MAIN ROUTER (The fix for errors)
+# MAIN ROUTER
 # ---------------------------
 if st.session_state.page == "signup":
     st.markdown("<h1 class='main-title'>📝 Create Account</h1>", unsafe_allow_html=True)
@@ -122,7 +130,7 @@ if st.session_state.page == "signup":
     with col2:
         email = st.text_input("📧 Email")
         password = st.text_input("🔑 Password", type="password")
-        if st.button("Next ➡️"):
+        if st.button("Next ➡️", key="signup_btn"):
             if email and password:
                 st.session_state.user = {"email": email, "password": password}
                 go_to("login")
@@ -134,13 +142,13 @@ elif st.session_state.page == "login":
     with col2:
         email = st.text_input("📧 Email")
         password = st.text_input("🔑 Password", type="password")
-        if st.button("Login ➡️"):
+        if st.button("Login ➡️", key="login_btn"):
             if "user" in st.session_state and email == st.session_state.user["email"] and password == st.session_state.user["password"]:
                 st.session_state.user_authenticated = True
                 go_to("profile")
                 st.rerun()
             else: st.error("Invalid Credentials")
-        if st.button("⬅️ Back to Signup"):
+        if st.button("⬅️ Back to Signup", key="login_back"):
             go_to("signup")
             st.rerun()
 
@@ -158,7 +166,7 @@ elif st.session_state.page == "profile":
             gender = st.selectbox("Gender", ["Male", "Female", "Other"], index=["Male","Female","Other"].index(st.session_state.profile["gender"]))
             region = st.text_input("Region", value=st.session_state.profile["region"])
             job = st.text_input("Job", value=st.session_state.profile["job"])
-            if st.button("💾 Save"):
+            if st.button("💾 Save", key="save_profile"):
                 st.session_state.profile = {"name":name, "phone":phone, "gender":gender, "region":region, "job":job}
                 st.session_state.edit_mode = False
                 st.session_state.profile_complete = True
@@ -167,10 +175,10 @@ elif st.session_state.page == "profile":
             st.markdown(f"""<div class='card'><h3>{st.session_state.profile['name'] or 'User'}</h3>
             <p>📞 {st.session_state.profile['phone']} | 📍 {st.session_state.profile['region']}</p>
             <p>💼 {st.session_state.profile['job']}</p></div>""", unsafe_allow_html=True)
-            if st.button("✏️ Edit Profile"):
+            if st.button("✏️ Edit Profile", key="edit_profile_btn"):
                 st.session_state.edit_mode = True
                 st.rerun()
-            if st.button("Continue to Home ➡️"):
+            if st.button("Continue to Home ➡️", key="profile_to_home"):
                 go_to("home")
                 st.rerun()
     if st.session_state.user_authenticated: render_bottom_nav()
@@ -183,7 +191,7 @@ elif st.session_state.page == "home":
     for i, c in enumerate(filtered):
         with cols[i%3]:
             st.markdown(f"<div class='card'><h2>{c['flag']} {c['name']}</h2><p>{c['bank']}</p></div>", unsafe_allow_html=True)
-            if st.button(f"Send →", key=f"h_{i}"):
+            if st.button(f"Send →", key=f"h_btn_{i}"):
                 st.session_state.country = c
                 go_to("payment")
                 st.rerun()
@@ -199,11 +207,11 @@ elif st.session_state.page == "payment":
         mode = st.selectbox("Mode", ["SWIFT", "PayPal", "Visa", "Mastercard"])
         conv = amt / rates.get(c["currency"], 83)
         st.info(f"💱 Received: {round(conv, 2)} {c['currency']}")
-        if st.button("Pay Now ➡️"):
+        if st.button("Pay Now ➡️", key="pay_now"):
             st.session_state.payment = {"amount": amt, "converted": conv, "currency": c["currency"], "mode": mode}
             go_to("process")
             st.rerun()
-        if st.button("⬅️ Back"):
+        if st.button("⬅️ Back", key="pay_back"):
             go_to("home")
             st.rerun()
     render_bottom_nav()
@@ -220,7 +228,10 @@ elif st.session_state.page == "process":
     st.balloons()
     d = st.session_state.payment
     st.markdown(f"<div class='card'><h1>✅ Success</h1><p>₹{d['amount']} → {round(d['converted'],2)} {d['currency']}</p></div>", unsafe_allow_html=True)
-    if st.button("🏠 Home"):
+    
+    # CHANGED: This button now has a unique key "process_home" 
+    # so it doesn't conflict with "nav_home" in the bottom nav
+    if st.button("🏠 Go to Dashboard", key="process_home"):
         go_to("home")
         st.rerun()
     render_bottom_nav()
