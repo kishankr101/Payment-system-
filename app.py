@@ -177,3 +177,4 @@ st.write(f"₹{amount} → ${round(usd,2)}")
 if st.button("⬅️ Back Home"):
     st.session_state.page = "countries"
     st.rerun()
+
